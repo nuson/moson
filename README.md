@@ -1,5 +1,5 @@
 # moson: Micro Organism Sonification
-
+[![DOI](https://zenodo.org/badge/doi/10.5281/zenodo.47213.svg)](http://dx.doi.org/10.5281/zenodo.47213)
 ## Version 1.0: 08/03/16
 
 ### (c) 2015-2016 [Paul Vickers](mailto:paul.vickers@northumbria.ac.uk) and [Louise Mackenzie](mailto:info@loumackenzie.com)
