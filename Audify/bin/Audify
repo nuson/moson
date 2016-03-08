@@ -1,0 +1,150 @@
+#!/usr/bin/env python
+import wave
+import random
+import struct
+import datetime
+import argparse
+import csv
+import collections
+import sys
+import decimal
+import math
+
+# Define command line arguments
+parser = argparse.ArgumentParser()
+parser.add_argument("-i", "--input", default = "input.csv",
+                    help = "Name of input CSV data file")
+parser.add_argument("-r", "--rate", default = 431, type = int, 
+                    help = "Sample rate of original data")
+parser.add_argument("-o", "--output", default = "", 
+                    help = "Name of output file. If none specfied will have same name as input but with .wav extension") 
+parser.add_argument("-d", "--debug", action='store_true', default=False,
+					help = "Turn on print statements for debugging")
+parser.add_argument("-f", "--fade", action='store_false', default=True,
+					help = "Turn off the default addition of fade in and out to prevent pops at start and end of audio")	
+parser.add_argument("-n", "--noskip", action='store_true', default=False,
+					help = "Do not skip header row in spreadsheet. Off by default, use -n or --noskip if no header row present")
+parser.add_argument("-s", "--separator", choices=['tab', 'comma'], default ="tab", 
+					help = "Specify the type of input file: comma separated or tab separated. Default is tab")		
+parser.add_argument("-m", "--mono", action='store_true', default=False,
+					help = "Specify mono output. Default is stereo")			
+
+args = parser.parse_args()                    
+
+
+samples =collections.deque()		# Double-ended queue allows for easy
+									# inserting of values at start end end of list
+									# Useful for adding fade ins and outs 
+if args.separator == 'tab':
+	delim = '\t'
+else:
+	delim = ','
+# open input file
+with open(args.input, 'rU') as csvfile:
+    reader = csv.reader(csvfile, delimiter=delim)
+    if args.noskip is False:
+    	next(reader, None)  # skip the headers
+    for row in reader:
+        samples.append(float(row[1]))
+        #if args.debug:
+        #	print samples[len(samples)-1]
+
+# Scale to 16-bit integer range
+oldMax = max(samples)
+oldMin = min(samples)
+oldRange = oldMax - oldMin
+#newMax = 32767
+#newMin = -32766
+newMax = 16383
+newMin = -16384
+newRange = newMax - newMin
+ 
+for sample in range (0, len(samples)-1):
+#for sample in samples:
+	current = samples[sample]
+	samples[sample] = int(round((((current - oldMin) * newRange) / oldRange) + newMin))
+	#if args.debug:
+		#print 'Old:', current, 'New:', samples[sample]
+
+#samples.append(0)
+       
+#if args.debug:
+#	for row in samples:
+#		print row
+
+# Add fade in and out
+if args.fade:
+	if args.debug:
+		print 'Add fade in'
+	#Create 1/4 second fade in to first value
+	numFrames = args.rate // 4
+	increment = abs(samples[0]) // numFrames
+	previousSample = samples[0]
+	if previousSample < 0:
+		increment *= -1
+	if args.debug:
+		print 'numFrames:' , numFrames
+		print 'increment: ', increment
+	for i in range (0, numFrames):
+		#if args.debug:
+			#print samples[0]
+		samples.appendleft(previousSample - increment)
+		print "Previous:", previousSample, "-increment:", previousSample- increment
+		previousSample = samples[0]
+	samples.appendleft(0)
+	print "First sample:", samples[0]
+	
+	if args.debug:
+		print 'Add fade out'
+	increment = abs(samples[len(samples)-1]) // numFrames
+	if args.debug:
+		print 'numFrames:' , numFrames
+		print 'increment:' , increment
+	#Create 1/4 second fade out from first value
+	previousSample = samples[len(samples)-1]
+	if previousSample < 0:
+		increment *= -1
+	for i in range (0, numFrames):
+		samples.append(previousSample - increment)
+		previousSample = samples[len(samples)-1]
+	samples.append(0)
+		
+
+
+
+outfil = args.output
+if outfil == "":
+	outfil = args.input.split('.')[0] + ".wav"
+outfile = wave.open(outfil, 'w')
+
+if args.debug:
+	print "Writing output wave file to",outfil
+	
+if args.mono:     # 1 = mono, 2 = stereo
+	channels = 1 		
+else:
+	channels = 2
+resolution = 2 		# 2 bytes = 16 bit
+outfile.setparams((channels, resolution, args.rate, 0, 'NONE', 'not compressed'))
+
+d1 = datetime.datetime.now()
+
+
+
+for sample in samples:
+	packedVal = struct.pack('h', sample)
+	outfile.writeframes (packedVal)
+
+d2 = datetime.datetime.now()
+if args.debug:
+	print (d2 - d1), "(time for writing frames)"
+
+outfile.close()
+
+d3 = datetime.datetime.now()
+if args.debug:
+	print (d3 - d2), "(time for closing the file)"
+
+# --------------
+
+
