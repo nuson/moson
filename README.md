@@ -1,6 +1,6 @@
 # moson: Micro Organism Sonification
 
-## Version 1.0: 08/03/16
+## Version 1: 08/03/16
 
 ### (c) 2015-2016 [Paul Vickers](mailto:paul.vickers@northumbria.ac.uk) and [Louise Mackenzie](mailto:info@loumackenzie.com)
 
